@@ -66,9 +66,9 @@ Unofficial guide to student life at UC Santa Cruz. The system covers residential
      Consider: context length limits, multilingual support, accuracy on domain-specific text,
      latency, and local vs. API-hosted. -->
 
-**Model used:** `all-MiniLM-L6-v2` (384-dim), run through ChromaDB's built-in ONNX embedding function. It's small, free, runs locally without an API key, and is fast for ~100 chunks. I originally planned to load it via the `sentence-transformers` package, but that requires PyTorch, which has no install candidate for Python 3.13 on Intel macOS — so I used the same model through ChromaDB's `onnxruntime`-based embedding function instead (same weights, same embeddings, no torch). Query text is embedded with the exact same function so the vectors are comparable. Retrieval uses cosine distance, top-k = 5.
+**Model used:** `all-MiniLM-L6-v2`, run through ChromaDB. It's small, free, runs locally without an API key, and is fast for ~100 chunks. I originally planned to load it via the `sentence-transformers` package, but that requires PyTorch, which has no install candidate for Python 3.13 on Intel macOS — so I used the same model through ChromaDB's `onnxruntime`-based embedding function instead (same weights, same embeddings, no torch). Query text is embedded with the exact same function so the vectors are comparable. Retrieval uses cosine distance, top-k = 5.
 
-**Production tradeoff reflection:** If cost wasn't a concern I'd try OpenAI's `text-embedding-3-small` or `3-large`. They have much longer context limits and probably handle UCSC-specific words (college names like Crown or Oakes, campus slang) better since they're trained on more data. The tradeoffs would be paying per query, adding API latency, and depending on a hosted service. For multilingual coverage I'd consider a model like `multilingual-e5-large`, but my sources are all English so that's not relevant here.
+**Production tradeoff reflection:** If cost wasn't a concern I'd try OpenAI's `text-embedding-3-small` or `3-large`. They have longer context limits and probably handle UCSC-specific words (Crown, Oakes, campus slang) better since they're trained on more data. The tradeoffs are paying per query and relying on a hosted API. My sources are all English, so multilingual support didn't matter here.
 
 ---
 
@@ -81,26 +81,29 @@ Unofficial guide to student life at UC Santa Cruz. The system covers residential
      Do not just say "I told it to use the documents" — show the actual instruction or explain
      the mechanism. -->
 
-**System prompt grounding instruction:**
+**Generation model:** Groq `llama-3.3-70b-versatile`
+
+**System prompt grounding instruction** (the actual system message in `generate.py`):
 
 ```
-You are answering questions about student life at UC Santa Cruz.
-Use ONLY the context provided below to answer. Do not use outside knowledge.
-If the context does not contain the answer, say "I don't know based on the available sources."
-After each claim, cite the source it came from using the format [Source N], matching the labels in the context.
-
-Context:
-[Source 1] {chunk text from top-1 retrieved chunk}
-[Source 2] {chunk text from top-2 retrieved chunk}
-...
-[Source 5] {chunk text from top-5 retrieved chunk}
-
-Question: {user question}
+You are the Unofficial Guide to UC Santa Cruz (UCSC), answering questions
+for students using firsthand student writing.
+Follow these rules strictly:
+1. Answer ONLY using the numbered context sources provided. Do not use any
+   outside knowledge.
+2. If the answer is not contained in the context, reply exactly:
+   "I don't know based on the available sources."
+3. After each claim, cite the source(s) it came from in brackets, e.g. [Source 2].
+4. Be concise and specific. Do not invent dining halls, bus routes, prices,
+   or college names that are not in the context.
 ```
 
-The grounding is enforced two ways: the system prompt explicitly tells the model not to use outside knowledge and to say "I don't know" when the context is missing the answer, and the context is formatted as numbered `[Source N]` blocks so each chunk is labeled and citable.
+The user message then supplies the retrieved context as numbered blocks
+(`[Source 1] (from: <title>)\n<chunk text>`) followed by `Question: <q>`.
 
-**How source attribution is surfaced in the response:** Each chunk fed to the model carries a `[Source N]` label that maps to one of the original 10 documents (tracked in the vector store metadata). The model is instructed to cite `[Source N]` after each claim, and after the answer is generated the application appends the corresponding URLs to the response so the user can verify each cited claim against the original document.
+I keep the model grounded three ways: the prompt tells it to only use the sources and to reply "I don't know based on the available sources" if the answer isn't there, the context is split into numbered `[Source N]` blocks so every fact has a source attached, and I set the temperature to 0.1 so it stays close to the text. This worked on the Oakes question (see Failure Case Analysis) — that answer wasn't retrieved, so the model said "I don't know" instead of making up a college.
+
+**How source attribution is surfaced:** Each `[Source N]` maps back to the chunk it came from and its original document. The model cites `[Source N]` after each claim, and `generate.py` prints a "Sources cited" list with each title and URL.
 
 ---
 
@@ -112,14 +115,16 @@ The grounding is enforced two ways: the system prompt explicitly tells the model
 
 | # | Question | Expected answer | System response (summarized) | Retrieval quality | Response accuracy |
 |---|----------|-----------------|------------------------------|-------------------|-------------------|
-| 1 | Which UCSC dining hall do students recommend most? | Cowell/Stevenson and Rachel Carson/Oakes are mentioned most often. | _(fill after running)_ | | |
-| 2 | Do UCSC students have to pay for Santa Cruz Metro buses? | No — free with a valid student ID and a quarter sticker. | _(fill after running)_ | | |
-| 3 | Where on campus is a good quiet place to study? | McHenry Library. | _(fill after running)_ | | |
-| 4 | How can I save money on textbooks at UCSC? | Buy used through Amazon, friends, or local bookstores like Bookshop Santa Cruz or the Literary Guillotine. | _(fill after running)_ | | |
-| 5 | Which residential college is known for being smaller and community-focused? | Oakes College. | _(fill after running)_ | | |
+| 1 | Which UCSC dining hall do students recommend most? | Cowell/Stevenson and Rachel Carson/Oakes are mentioned most often. | "The Rachel Carson/Oakes Dining Hall is recommended the most… first place, newest/grandest." [GoodTimes] | Partially relevant (dining doc retrieved, but at rank 4; top chunk was off-topic) | Accurate but partial (names RC/Oakes, the #1 hall; doesn't mention Cowell/Stevenson) |
+| 2 | Do UCSC students have to pay for Santa Cruz Metro buses? | No — free with a valid student ID and a quarter sticker. | "No, students do not pay if they have a valid university ID." [CoHP bus guide 2023] | Relevant (exact chunk at rank 1, similarity 0.80) | Accurate |
+| 3 | Where on campus is a good quiet place to study? | McHenry Library. | "The higher floors of McHenry Library, specifically the fourth floor." [CoHP Eleven Things] | Relevant (rank 1) | Accurate |
+| 4 | How can I save money on textbooks at UCSC? | Buy used through Amazon, friends, or local bookstores like Bookshop Santa Cruz or the Literary Guillotine. | "Buy from friends, Amazon, or local bookstores like the Literary Guillotine and Bookshop Santa Cruz." [CoHP Eleven Things] | Relevant (rank 1) | Accurate |
+| 5 | Which residential college is known for being smaller and community-focused? | Oakes College. | "I don't know based on the available sources." | Off-target (the Oakes chunk never entered the top 5 — see Failure Case Analysis) | No answer, but a correct refusal — the answer wasn't retrieved, so it didn't guess |
 
-**Retrieval quality:** Relevant / Partially relevant / Off-target  
-**Response accuracy:** Accurate / Partially accurate / Inaccurate
+**Summary:** 4 of 5 answered correctly with citations. The Oakes question failed at retrieval, and because of the grounding the model said "I don't know" instead of guessing.
+
+**Retrieval quality:** Partially relevant
+**Response accuracy:** Accurate
 
 ---
 
@@ -138,11 +143,11 @@ The grounding is enforced two ways: the system prompt explicitly tells the model
 
 **Question that failed:** "Which residential college is known for being smaller and community-focused?" (expected answer: **Oakes College**).
 
-**What the system returned:** The top-5 retrieved chunks were two chunks from the colleges-ranked FAQ (leading with College Nine and College Ten), two chunks from the dorm-life FAQ about general "community," and a Niche review mentioning "smaller communities." The chunk that actually answers the question — *"6. Oakes College … well-known for its supportive community … a smaller, tight-knit atmosphere"* — never appeared in the top 5, even though that exact sentence exists in the corpus. Pushing k up to 12 still did not surface it. Even when I queried the literal phrase "Oakes College smaller tight-knit community," the only chunk holding that answer came back leading with its Kresge text — because the Oakes sentence shares a single embedding with the Kresge item it was chunked together with.
+**What the system returned:** "I don't know based on the available sources." The Oakes answer never showed up in the top 5 retrieved chunks, even though the sentence *"Oakes College … a smaller, tight-knit atmosphere"* is in my documents.
 
-**Root cause (tied to a specific pipeline stage):** The **chunking stage**. The colleges-ranked document is a numbered list where each college is a short (~250-character) item. My recursive splitter targets 700 characters, so it merged two list items into one chunk — chunk `06_collegevine_colleges_ranked__3` contains *both* Kresge (item 5) **and** Oakes (item 6). A chunk gets a single embedding vector, so that vector is an average of "Kresge" and "Oakes" content. When the query asks specifically about Oakes, the blended vector is a weak, diluted match, and the Oakes information is effectively buried — the embedding can't represent one college cleanly when the chunk is about two. This is a mixed-topic-chunk problem: a chunk size tuned for paragraph-style guides is too coarse for list-style documents where each line is its own topic.
+**Root cause (tied to a specific pipeline stage):** The **chunking stage**. The colleges-ranked doc is a numbered list, and each college is only about 250 characters. My chunker aims for 700 characters, so it put two colleges in one chunk — Kresge and Oakes ended up together. That chunk gets one embedding that mixes both colleges, so when I ask specifically about Oakes the match is weak and it gets buried.
 
-**What you would change to fix it:** Chunk list-style documents by list item instead of by character count — split the colleges-ranked FAQ on its numbered-item boundaries (`1.`, `2.`, …) so each college becomes its own chunk with its own embedding. A lighter-weight alternative is to lower the chunk size for that document, or to prepend each item's subject (the college name) so the embedding is anchored to it. A more general fix would be hybrid retrieval: combine the vector search with a keyword match on "Oakes," which would pull the right item even when its embedding is diluted.
+**What you would change to fix it:** Split list-style documents by list item instead of by character count, so each college becomes its own chunk with its own embedding. A simpler fix would be a smaller chunk size for that one document.
 
 ---
 
@@ -151,9 +156,9 @@ The grounding is enforced two ways: the system prompt explicitly tells the model
 <!-- Reflect on how planning.md shaped your implementation.
      Answer both questions with at least 2–3 sentences each. -->
 
-**One way the spec helped you during implementation:**
+**One way the spec helped you during implementation:** Writing the chunking strategy in planning.md first gave me exact numbers to build from — 700 characters, 100 overlap, recursive splitter. When it was time to write the code I wasn't guessing, I just implemented what I'd already decided. It also made the failure case easier to explain, since I already knew why I picked that chunk size.
 
-**One way your implementation diverged from the spec, and why:**
+**One way your implementation diverged from the spec, and why:** I planned to load all-MiniLM-L6-v2 with the `sentence-transformers` package, but it needs PyTorch, which won't install on Python 3.13 on my Intel Mac. I used the same model through ChromaDB's ONNX embedding function instead, so the embeddings are the same but I didn't need torch.
 
 ---
 
@@ -170,12 +175,12 @@ The grounding is enforced two ways: the system prompt explicitly tells the model
 
 **Instance 1**
 
-- *What I gave the AI:*
-- *What it produced:*
-- *What I changed or overrode:*
+- *What I gave the AI:* My two cleaned Niche files, which looked useless — just star ratings and dates, no actual review text.
+- *What it produced:* It found that Niche puts each review in a `<span class="review__text">` instead of a `<p>` tag, which my scraper was skipping, and added a step to grab those spans.
+- *What I changed or overrode:* I kept the fix but also had it filter out the leftover rating and timestamp lines, so the files ended up as real reviews instead of metadata.
 
 **Instance 2**
 
-- *What I gave the AI:*
-- *What it produced:*
-- *What I changed or overrode:*
+- *What I gave the AI:* My chunk output to look over.
+- *What it produced:* It noticed college headings like "Stevenson College: Founded in 1966" were being split into their own tiny chunks, separated from the description.
+- *What I changed or overrode:* I had it add a step that reattaches a short heading to the chunk after it, so the college name stays with its description.
