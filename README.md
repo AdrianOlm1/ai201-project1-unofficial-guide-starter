@@ -66,7 +66,7 @@ Unofficial guide to student life at UC Santa Cruz. The system covers residential
      Consider: context length limits, multilingual support, accuracy on domain-specific text,
      latency, and local vs. API-hosted. -->
 
-**Model used:** sentence-transformers `all-MiniLM-L6-v2`. It's small, free, runs locally without an API key, and is fast enough for ~100–250 chunks at this scale.
+**Model used:** `all-MiniLM-L6-v2` (384-dim), run through ChromaDB's built-in ONNX embedding function. It's small, free, runs locally without an API key, and is fast for ~100 chunks. I originally planned to load it via the `sentence-transformers` package, but that requires PyTorch, which has no install candidate for Python 3.13 on Intel macOS — so I used the same model through ChromaDB's `onnxruntime`-based embedding function instead (same weights, same embeddings, no torch). Query text is embedded with the exact same function so the vectors are comparable. Retrieval uses cosine distance, top-k = 5.
 
 **Production tradeoff reflection:** If cost wasn't a concern I'd try OpenAI's `text-embedding-3-small` or `3-large`. They have much longer context limits and probably handle UCSC-specific words (college names like Crown or Oakes, campus slang) better since they're trained on more data. The tradeoffs would be paying per query, adding API latency, and depending on a hosted service. For multilingual coverage I'd consider a model like `multilingual-e5-large`, but my sources are all English so that's not relevant here.
 
@@ -136,13 +136,13 @@ The grounding is enforced two ways: the system prompt explicitly tells the model
      "The embedding model treated the professor's nickname as out-of-vocabulary and returned
      results from an unrelated review" is an explanation. -->
 
-**Question that failed:**
+**Question that failed:** "Which residential college is known for being smaller and community-focused?" (expected answer: **Oakes College**).
 
-**What the system returned:**
+**What the system returned:** The top-5 retrieved chunks were two chunks from the colleges-ranked FAQ (leading with College Nine and College Ten), two chunks from the dorm-life FAQ about general "community," and a Niche review mentioning "smaller communities." The chunk that actually answers the question — *"6. Oakes College … well-known for its supportive community … a smaller, tight-knit atmosphere"* — never appeared in the top 5, even though that exact sentence exists in the corpus. Pushing k up to 12 still did not surface it. Even when I queried the literal phrase "Oakes College smaller tight-knit community," the only chunk holding that answer came back leading with its Kresge text — because the Oakes sentence shares a single embedding with the Kresge item it was chunked together with.
 
-**Root cause (tied to a specific pipeline stage):**
+**Root cause (tied to a specific pipeline stage):** The **chunking stage**. The colleges-ranked document is a numbered list where each college is a short (~250-character) item. My recursive splitter targets 700 characters, so it merged two list items into one chunk — chunk `06_collegevine_colleges_ranked__3` contains *both* Kresge (item 5) **and** Oakes (item 6). A chunk gets a single embedding vector, so that vector is an average of "Kresge" and "Oakes" content. When the query asks specifically about Oakes, the blended vector is a weak, diluted match, and the Oakes information is effectively buried — the embedding can't represent one college cleanly when the chunk is about two. This is a mixed-topic-chunk problem: a chunk size tuned for paragraph-style guides is too coarse for list-style documents where each line is its own topic.
 
-**What you would change to fix it:**
+**What you would change to fix it:** Chunk list-style documents by list item instead of by character count — split the colleges-ranked FAQ on its numbered-item boundaries (`1.`, `2.`, …) so each college becomes its own chunk with its own embedding. A lighter-weight alternative is to lower the chunk size for that document, or to prepend each item's subject (the college name) so the embedding is anchored to it. A more general fix would be hybrid retrieval: combine the vector search with a keyword match on "Oakes," which would pull the right item even when its embedding is diluted.
 
 ---
 
