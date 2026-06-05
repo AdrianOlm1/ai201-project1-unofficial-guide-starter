@@ -32,7 +32,7 @@ Unofficial guide to student life at UC Santa Cruz. The system covers residential
 | 4 | City on a Hill Press — "A Guide to Taking the Bus for the Transit-Savvy" | Student newspaper transit guide | https://cityonahillpress.com/2023/09/27/a-guide-to-taking-the-bus-for-the-transit-savvy/ |
 | 5 | City on a Hill Press — "A Simple Guide to Buses on Campus" (2008) | Older student newspaper guide (outdated-info contrast) | https://cityonahillpress.com/2008/10/23/a-simple-guide-to-buses-on-campus/ |
 | 6 | CollegeVine — "UCSC colleges ranked?" | Q&A forum answer | https://www.collegevine.com/faq/31271/ucsc-colleges-ranked |
-| 7 | Quora — "Which residential college at UC Santa Cruz is best for me?" | Q&A forum thread (multiple answers) | https://www.quora.com/Which-residential-college-at-UC-Santa-Cruz-is-best-for-me |
+| 7 | CollegeVine — "What's Campus Life Like in UC Santa Cruz Dorms?" | Q&A forum thread (dorm/residential life) | https://www.collegevine.com/faq/124138/what-s-campus-life-like-in-uc-santa-cruz-dorms |
 | 8 | Niche — UC Santa Cruz Reviews | Aggregated short student reviews | https://www.niche.com/colleges/university-of-california-santa-cruz/reviews/ |
 | 9 | Niche — UC Santa Cruz Campus Life | Sectioned student opinions on dining/safety/social | https://www.niche.com/colleges/university-of-california-santa-cruz/campus-life/ |
 | 10 | GoodTimes Santa Cruz — "The Best Places to Eat on the UCSC Campus" | Local publication dining listicle | https://www.goodtimes.sc/best-places-to-eat-ucsc-university-of-california-santa-cruz-dining/ |
@@ -54,7 +54,7 @@ Unofficial guide to student life at UC Santa Cruz. The system covers residential
 
 **Why these choices fit your documents:** I used a recursive character splitter so chunks break at paragraph or sentence boundaries when possible, not mid-word. My sources are a mix of long-form student newspaper articles, short reviews, and Q&A answers. 700 characters fits about one paragraph or a couple of short reviews per chunk, which keeps each chunk on one topic. 100 characters of overlap keeps a sentence of context across chunk boundaries so I don't lose the start of a thought in the long articles. Bigger chunks would mix multiple topics together; smaller ones would cut paragraphs in half. Preprocessing: stripped HTML/scripts/nav/footer with BeautifulSoup, collapsed whitespace but preserved `\n\n` paragraph breaks, removed bylines and "share this article" boilerplate.
 
-**Final chunk count:** _(fill in after running the chunker)_
+**Final chunk count:** 104 chunks across the 10 documents (mean ~515 chars, median ~550, range 172–725, none under 100 chars).
 
 ---
 

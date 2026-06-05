@@ -27,7 +27,7 @@ I choose to focus on a guide for helping students at UCSC choose a college to be
 | 4 | City on a Hill Press — "A Guide to Taking the Bus for the Transit-Savvy" | Current student guide to Metro routes, Loop bus, and how to actually get around campus. | https://cityonahillpress.com/2023/09/27/a-guide-to-taking-the-bus-for-the-transit-savvy/ |
 | 5 | City on a Hill Press — "A Simple Guide to Buses on Campus" (2008) | Older transit guide; useful as a stale-info contrast case for evaluating how the system handles outdated content. | https://cityonahillpress.com/2008/10/23/a-simple-guide-to-buses-on-campus/ |
 | 6 | CollegeVine — "UCSC colleges ranked?" | Q&A response with subjective ranking and pros/cons of each residential college; short, opinionated. | https://www.collegevine.com/faq/31271/ucsc-colleges-ranked |
-| 7 | Quora — "Which residential college at UC Santa Cruz is best for me?" | Multiple long-form student answers comparing colleges based on personality and major fit. | https://www.quora.com/Which-residential-college-at-UC-Santa-Cruz-is-best-for-me |
+| 7 | CollegeVine — "What's Campus Life Like in UC Santa Cruz Dorms?" | Q&A on dorm/residential-life experience from a student perspective. (Swapped in for a Quora thread that blocked all scrapers.) | https://www.collegevine.com/faq/124138/what-s-campus-life-like-in-uc-santa-cruz-dorms |
 | 8 | Niche — UC Santa Cruz Reviews | Aggregated short student reviews of UCSC overall — mix of positive and negative, very review-shaped. | https://www.niche.com/colleges/university-of-california-santa-cruz/reviews/ |
 | 9 | Niche — UC Santa Cruz Campus Life | Student opinions specifically on dining, safety, social life, party scene — sectioned by topic. | https://www.niche.com/colleges/university-of-california-santa-cruz/campus-life/ |
 | 10 | GoodTimes Santa Cruz — "The Best Places to Eat on the UCSC Campus" | Local publication's ranked dining listicle covering dining halls and campus cafes. | https://www.goodtimes.sc/best-places-to-eat-ucsc-university-of-california-santa-cruz-dining/ |
@@ -111,7 +111,7 @@ if cost wasnt an issue I owuld try openAI's text-embedding-3-small because they 
      ↓. ____________________________________________________________________
 
      [Vector Store] -> [Retrieval] ------------> [Generation]
-     ChromaDB.         top 5 nearest chunks       LLM (grok)
+     ChromaDB.         top 5 nearest chunks       LLM (Groq — Llama 3)
                          cosine similarity
 
 ---

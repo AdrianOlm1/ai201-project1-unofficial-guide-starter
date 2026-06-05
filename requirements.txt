@@ -3,6 +3,11 @@ chromadb>=0.6.0
 groq==0.15.0
 python-dotenv==1.0.1
 
+# Ingestion (Milestone 3) — fetch pages and strip HTML to clean text
+requests>=2.32
+beautifulsoup4>=4.12
+lxml>=5.0
+
 # Query interface — add whichever you use for Milestone 5:
 # gradio>=6.9.0
 # streamlit>=1.40.0
